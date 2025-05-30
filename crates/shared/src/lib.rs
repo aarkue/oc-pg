@@ -1,5 +1,4 @@
 pub mod discovery;
-pub mod reduction;
 pub mod sync_group_discovery;
 
 use std::{
