@@ -1,4 +1,21 @@
-# OC-DECLARE
+# Discovery of object-centric Petri nets with Synchronized Place Groups
+
+See the `sync_group_discovery.rs` file.
+The evaluation can be ran using `cargo test sync_group_discovery_eval_table --release -- --nocapture`.
+
+
+
+
+
+
+## Outdated
+
+
+
+This repository was forked from the OC-DECLARE approach, as it uses similar condition and constraint checking techniques.
+
+
+See below for the previous README.
 
 This repository contains the following parts:
 

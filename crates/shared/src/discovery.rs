@@ -199,9 +199,9 @@ pub fn discover(
                             }
                         } else {
                             act_arcs.push(OCDeclareArcLabel {
-                                each: any_label.any,
+                                each: vec![],
                                 any: vec![],
-                                all: vec![],
+                                all: any_label.any,
                             });
                         }
                     }
@@ -210,7 +210,6 @@ pub fn discover(
                 let mut old: HashSet<_> = act_arcs.iter().cloned().collect();
                 let mut iteration = 1;
                 while changed {
-                    // println!("{}->{}, |act_arcs|={}",act1,act2,act_arcs.len());
                     let x = 0..act_arcs.len();
                     let new_res: HashSet<_> = x
                         .flat_map(|arc1_i| {
@@ -261,49 +260,30 @@ pub fn discover(
                 }
                 let v = old
                     .clone()
-                    // .into_iter()
                     .into_par_iter()
                     .filter(move |arc1| {
                         !old.iter()
                             .any(|arc2| *arc1 != *arc2 && arc1.is_dominated_by(arc2))
                     })
-                    .flat_map(move |label| {
-                        let mut arc = OCDeclareArc {
+                    .map(move |label| {
+                        let arc = OCDeclareArc {
                             from: OCDeclareNode::new(act1.clone()),
                             to: OCDeclareNode::new(act2.clone()),
                             arc_type: OCDeclareArcType::ASS,
                             label,
-                            counts: (Some(1), Some(20)),
+                            counts: (Some(1),None)
                         };
-                        if arc.get_for_all_evs_perf_thresh(locel, noise_thresh) {
-                            // if test_for_resource(&arc.label, &obj_invs_cloned) {
-                                arc.counts.1 = None;
-                                get_stricter_arrows_for_as(arc, noise_thresh, locel)
-                            // }else{
-                            //     vec![]
-                            // }
-                        } else {
-                            vec![]
-                        }
+                        arc
                     });
                 v
             }),
     );
     let ret_len = ret.len();
-    // let filtered_ret: Vec<_> = ret.into_iter().filter(|e| test_for_resource(&e.label,&get_direct_or_indirect_object_involvements(
-    //     e.from.as_str(),
-    //     e.to.as_str(),
-    //     &act_ob_inv,
-    //     &ob_ob_inv,
-    //     &ob_ob_rev_inv,
-    //     o2o_mode,
-    // ))).collect();
-    // let filtered_ret_len = filtered_ret.len();
-    // println!("Filtered {} to {}",ret_len,filtered_ret_len);
     let new_ret = reduce_oc_arcs(ret);
     println!("Reduced {} to {}",ret_len,new_ret.len());
     new_ret
 }
+
 
 fn get_stricter_arrows_for_as(
     mut a: OCDeclareArc,
@@ -355,7 +335,7 @@ fn get_stricter_arrows_for_as(
 
 /// Returns an iterator over different object type associations
 /// in particular each item (X,b) consists of an ObjectTypeAssociation X and a flag b, indicating if multiple objects are sometimes involved in the source (or through the O2O)
-fn get_direct_or_indirect_object_involvements<'a>(
+pub fn get_direct_or_indirect_object_involvements<'a>(
     act1: &'a str,
     act2: &'a str,
     act_ob_involvement: &'a HashMap<String, HashMap<String, ObjectInvolvementCounts>>,
