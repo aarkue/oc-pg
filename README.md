@@ -1,7 +1,19 @@
 # Discovery of object-centric Petri nets with Synchronized Place Groups
 
 See the `sync_group_discovery.rs` file.
-The evaluation can be ran using `cargo test sync_group_discovery_eval_table --release -- --nocapture`.
+To execute the evaluation run `cargo test sync_group_discovery_eval_table --release -- --nocapture`, remembering to update the file paths.
+The used datasets are available from https://www.ocel-standard.org/event-logs/overview/.
+The evaluation tests will produce part of a LaTeX table by printing the values, delimited by `&` and `\\` in stdout.
+
+
+
+
+
+---
+
+
+
+---
 
 
 
