@@ -15,12 +15,19 @@ use process_mining::{
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    discovery::get_direct_or_indirect_object_involvements, get_activity_object_involvements,
+use crate::{ get_activity_object_involvements,
     get_object_to_object_involvements, get_rev_object_to_object_involvements, perf,
     preprocess_ocel, OCDeclareArc, OCDeclareArcLabel, OCDeclareArcType, OCDeclareNode,
     ObjectInvolvementCounts, ObjectTypeAssociation, EXIT_EVENT_PREFIX, INIT_EVENT_PREFIX,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum O2OMode {
+    None,
+    Direct,
+    Indirect,
+    Bidirectional,
+}
 
 pub fn mine_associations(
     locel: &IndexLinkedOCEL,
@@ -61,7 +68,7 @@ pub fn mine_associations(
                     &act_ob_inv,
                     &ob_ob_inv,
                     &ob_ob_rev_inv,
-                    crate::discovery::O2OMode::None,
+                    O2OMode::None,
                 );
                 // let obj_invs_cloned = obj_invs.clone();
                 for (ot, is_multiple) in obj_invs {
@@ -185,6 +192,79 @@ pub fn mine_associations(
             }),
     );
     ret
+}
+
+
+/// Returns an iterator over different object type associations
+/// in particular each item (X,b) consists of an ObjectTypeAssociation X and a flag b, indicating if multiple objects are sometimes involved in the source (or through the O2O)
+pub fn get_direct_or_indirect_object_involvements<'a>(
+    act1: &'a str,
+    act2: &'a str,
+    act_ob_involvement: &'a HashMap<String, HashMap<String, ObjectInvolvementCounts>>,
+    obj_obj_involvement: &'a HashMap<String, HashMap<String, ObjectInvolvementCounts>>,
+    rev_obj_obj_involvement: &'a HashMap<String, HashMap<String, ObjectInvolvementCounts>>,
+    o2o_mode: O2OMode,
+) -> Vec<(ObjectTypeAssociation, bool)> {
+    let act1_obs: HashSet<_> = act_ob_involvement.get(act1).unwrap().keys().collect();
+    let act2_obs: HashSet<_> = act_ob_involvement.get(act2).unwrap().keys().collect();
+    let mut res = act1_obs
+        .iter()
+        .filter(|ot| act2_obs.contains(*ot))
+        .map(|ot| {
+            (
+                ObjectTypeAssociation::new_simple(*ot),
+                act_ob_involvement.get(act1).unwrap().get(*ot).unwrap().max > 1,
+            )
+        })
+        .collect_vec();
+    if o2o_mode == O2OMode::Direct || o2o_mode == O2OMode::Bidirectional {
+        res.extend(act1_obs.iter().flat_map(|ot| {
+            obj_obj_involvement
+                .get(*ot)
+                .into_iter()
+                .flat_map(|ots2| {
+                    ots2.iter()
+                        .filter(|(ot2, _)| act2_obs.contains(ot2))
+                        // .filter(|(ot2, _)| *ot == "customers" && *ot2 == "employees")
+                        .map(|(ot2, oi)| {
+                            (
+                                ot,
+                                ot2,
+                                oi.max > 1
+                                    || act_ob_involvement.get(act1).unwrap().get(*ot).unwrap().max
+                                        > 1,
+                            )
+                        })
+                })
+                .map(|(ot1, ot2, multiple)| (ObjectTypeAssociation::new_o2o(*ot1, ot2), multiple))
+                .collect_vec()
+        }));
+    }
+    if o2o_mode == O2OMode::Indirect || o2o_mode == O2OMode::Bidirectional {
+        res.extend(act1_obs.iter().flat_map(|ot| {
+            rev_obj_obj_involvement
+                .get(*ot)
+                .into_iter()
+                .flat_map(|ots2| {
+                    ots2.iter()
+                        .filter(|(ot2, _)| act2_obs.contains(ot2))
+                        .map(|(ot2, oi)| {
+                            (
+                                ot,
+                                ot2,
+                                oi.max > 1
+                                    || act_ob_involvement.get(act1).unwrap().get(*ot).unwrap().max
+                                        > 1,
+                            )
+                        })
+                })
+                .map(|(ot1, ot2, multiple)| {
+                    (ObjectTypeAssociation::new_o2o_rev(*ot1, ot2), multiple)
+                })
+                .collect_vec()
+        }));
+    }
+    res
 }
 
 pub fn incoporate_control_flow_and_ensure_fitness(
